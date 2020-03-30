@@ -29,6 +29,28 @@ def draw_planet():
                    planet_radius[idx]*np.sin(planet_theta[idx]), c=colors[idx])
 
 
+def fibo(x):
+    fibo_nums = [1, 1]
+    while True:
+        if fibo_nums[-1] > x:
+            break
+        fibo_nums.append(fibo_nums[-1] + fibo_nums[-2])
+
+    return fibo_nums[1:-1]
+
+
+def diff_of_progression(x):
+    progression = [1]
+    c_diff = 1
+
+    while True:
+        if progression[-1] > x:
+            break
+        new_num = progression[-1] + c_diff*len(progression)
+        progression.append(new_num)
+    return progression[:-1]
+
+
 def move_planet():
     global planet_theta
 
@@ -37,10 +59,10 @@ def move_planet():
 
 
 def calc_gravity(x, y):
-    G = 3
+    G = 0.5
     g_x, g_y = 0, 0
 
-    for idx in range(0, 3):
+    for idx in range(3):
         planet_x = planet_radius[idx]*np.cos(planet_theta[idx])
         planet_y = planet_radius[idx]*np.sin(planet_theta[idx])
 
@@ -57,33 +79,35 @@ def calc_gravity(x, y):
 
 
 def calc_value(x, y, fuel):
-    planet_x = planet_radius[2]*np.cos(planet_theta[2])
-    planet_y = planet_radius[2]*np.sin(planet_theta[2])
+    start_planet_x = planet_radius[0]*np.cos(planet_theta[0])
+    start_planet_y = planet_radius[0]*np.sin(planet_theta[0])
+    target_planet_x = planet_radius[2]*np.cos(planet_theta[2])
+    target_planet_y = planet_radius[2]*np.sin(planet_theta[2])
 
-    return fuel / distance(x, y, planet_x, planet_y)**4
+    return distance(x, y, start_planet_x, start_planet_y) / distance(x, y, target_planet_x, target_planet_y)**3
 
 
 def first_make():
-    planet_x = (planet_radius[0]+1)*np.cos(planet_theta[0])
-    planet_y = (planet_radius[0]+1)*np.sin(planet_theta[0])
+    planet_x = (planet_radius[0]+how_far)*np.cos(planet_theta_init[0])
+    planet_y = (planet_radius[0]+how_far)*np.sin(planet_theta_init[0])
 
     ships = list()
     for _ in range(n):
-        info = dict(x=planet_x, y=planet_y, fuel=1000.0, weights=np.random.uniform(
-            -speed_range, speed_range, (1, 2)), v_x=1.5*np.cos(planet_theta[0]), v_y=1.5*np.sin(planet_theta[0]), value=0.0, calc=True, isgood=False)
+        info = dict(x=planet_x, y=planet_y, fuel=fuel_amount, weights=np.random.uniform(
+            -speed_range, speed_range, (1, 2)), v_x=how_fast*np.cos(planet_theta_init[0]), v_y=how_fast*np.sin(planet_theta_init[0]), value=0.0, calc=True, isgood=False)
         ships.append(info)
 
     return ships
 
 
 def children_make(weights):
-    planet_x = (planet_radius[0]+1)*np.cos(planet_theta[0])
-    planet_y = (planet_radius[0]+1)*np.sin(planet_theta[0])
+    planet_x = (planet_radius[0]+how_far)*np.cos(planet_theta_init[0])
+    planet_y = (planet_radius[0]+how_far)*np.sin(planet_theta_init[0])
 
     ships = list()
     for _ in range(n):
-        info = dict(x=planet_x, y=planet_y, fuel=1000.0,
-                    weights=weights, v_x=1.5*np.cos(planet_theta[0]), v_y=1.5*np.sin(planet_theta[0]), value=0.0, calc=True, isgood=False)
+        info = dict(x=planet_x, y=planet_y, fuel=fuel_amount,
+                    weights=weights, v_x=how_fast*np.cos(planet_theta_init[0]), v_y=how_fast*np.sin(planet_theta_init[0]), value=0.0, calc=True, isgood=False)
         ships.append(info)
 
     return ships
@@ -91,17 +115,21 @@ def children_make(weights):
 
 def move_ships(moment, isokay):
     global ships
+    target_x = planet_radius[2]*np.cos(planet_theta[2])
+    target_y = planet_radius[2]*np.sin(planet_theta[2])
+
     for ship in ships:
         if not ship['calc']:
             continue
 
         x, y = ship['x'], ship['y']
-        if distance(x, y, planet_radius[2]*np.cos(planet_theta[2]), planet_radius[2]*np.sin(planet_theta[2])) < 1:
+        d_to_target = distance(x, y, target_x, target_y)
+        if d_to_target < 1:
             ship['calc'] = False
             ship['isgood'] = True
             continue
 
-        if distance(x, y, 0, 0) > 21:
+        if distance(x, y, 0, 0) > 20*scale:
             ship['calc'] = False
             continue
 
@@ -116,12 +144,13 @@ def move_ships(moment, isokay):
 
         if isokay:
             if np.random.choice([True, False], 1, p=(epsilon, 1-epsilon))[0]:
-                ship['weights'][moment] += np.random.uniform(-speed_range,
-                                                             speed_range, (2,))
+                ship['weights'][moment] += np.random.uniform(-add_range,
+                                                             add_range, (2,))
 
         else:
             temp_w = np.random.uniform(-speed_range, speed_range, (1, 2))
-            ship['weights'] = np.concatenate((ship['weights'], temp_w), axis=0)
+            ship['weights'] = np.concatenate(
+                (ship['weights'], temp_w), axis=0)
 
         a_x += ship['weights'][moment][0] * fuel_to_acceleration
         a_y += ship['weights'][moment][1] * fuel_to_acceleration
@@ -136,7 +165,7 @@ def move_ships(moment, isokay):
 
         ship['value'] = calc_value(
             ship['x'], ship['y'], ship['fuel'])*(1-gamma) + gamma*ship['value']
-        move_planet()
+    move_planet()
 
 
 def test_ship(ship):
@@ -158,72 +187,92 @@ def test_ship(ship):
 
         ship['x'] += ship['v_x']
         ship['y'] += ship['v_y']
-        move_planet()
 
         draw_orbit()
         draw_planet()
         plt.scatter(ship['x'], ship['y'], c='k')
         cam.snap()
-    animate(50)
+        move_planet()
+    animate(75)
 
 
 # make Canvas
-np.random.seed(47231)
+np.random.seed(544821)
+scale = 2
 fig, axes = plt.subplots()
-ax = plt.axes(xlim=(-20, 20), ylim=(-20, 20))
+ax = plt.axes(xlim=(-20*scale, 20*scale), ylim=(-20*scale, 20*scale))
 ax.set_aspect('equal')
 cam = Camera(fig)
 
 # planet parameters
 planet_radius = (4, 10, 18)
+planet_radius = tuple(map(lambda x: scale*x, planet_radius))
 planet_theta_init = np.random.uniform(-np.pi, np.pi, (3,))
 planet_theta = planet_theta_init.copy()
 angular_velocity = np.sort(np.random.uniform(0, np.pi / 50, (3,)))[::-1]
 
 # Initialize parameters
-time = 250
-n = 1000
-epsilon = 0.4
+time = 100
+n = 500
+epsilon = 0.0
 deceleration = 0.5
-gamma = 0.5
-speed_range = 5
-ships = first_make()
-fuel_to_acceleration = 1 / 250
-EPOCHS = 10
-max_val_ships = []
+gamma = 0.05
+add_range = 5
+speed_range = 50
+fuel_to_acceleration = 1 / 50
+fuel_amount = 15000
+EPOCHS = 1
+total_best_ship = (0, 0)
+total_best_ship_exist = False
+how_far = 1
+how_fast = 1
 
 
 if True:
     for epoch in range(EPOCHS):
-        weight_length = ships[0]['weights'].shape[0]
-        for moment in range(time):
-            if moment < weight_length:
-                move_ships(moment, True)
+        if total_best_ship_exist:
+            best_ship = total_best_ship
+            ships = children_make(best_ship[0])
+        else:
+            best_ship = (0, -1)
+            ships = first_make()
+
+        for duration in range(1, time, 3):
+
+            best_ship_exist = False
+            weight_length = ships[0]['weights'].shape[0]
+            for moment in range(duration):  # 학습 루프
+                if moment < weight_length:
+                    move_ships(moment, True)
+                else:
+                    move_ships(moment, False)
+
+            max_val_ship = (0, -1)
+            for ship in ships:  # 우주선 검증
+                if ship['isgood']:
+                    if ship['value'] > best_ship[1]:
+                        best_ship = (ship['weights'].copy(), ship['value'])
+                        best_ship_exist = True
+                if ship['value'] > max_val_ship[1]:
+                    max_val_ship = (ship['weights'].copy(), ship['value'])
+
+            # 자식 생산
+            if best_ship_exist:
+                ships = children_make(best_ship[0].copy())
+                total_best_ship = best_ship
+                print('There we Go!')
             else:
-                move_ships(moment, False)
+                ships = children_make(max_val_ship[0].copy())
+                print('None of them...')
 
-        temp_val = (0, 0)
-        for idx, ship in enumerate(ships):
-            if ship['isgood']:
-                temp_val = (idx, ship['value'])
-                break
-            if ship['value'] > temp_val[1]:
-                temp_val = (idx, ship['value'])
+            planet_theta = planet_theta_init.copy()
 
-        planet_theta = planet_theta_init.copy()
-        max_val_ships.append((ships[temp_val[0]], temp_val[1]))
-        ships = children_make(ships[temp_val[0]]['weights'])
+planet_theta = planet_theta_init.copy()
+planet_x = (planet_radius[0]+how_far)*np.cos(planet_theta_init[0])
+planet_y = (planet_radius[0]+how_far)*np.sin(planet_theta_init[0])
 
-
-max_weight = (0, 0)
-for item in max_val_ships:
-    if item[1] > max_weight[1]:
-        max_weight = item
-
-planet_x = (planet_radius[0]+1)*np.cos(planet_theta[0])
-planet_y = (planet_radius[0]+1)*np.sin(planet_theta[0])
-
-perfect_ship = dict(x=planet_x, y=planet_y, fuel=1000.0,
-                    weights=max_weight[0]['weights'], v_x=0.8*np.cos(planet_theta[0]), v_y=0.8*np.sin(planet_theta[0]))
+print(total_best_ship)
+perfect_ship = dict(x=planet_x, y=planet_y, fuel=fuel_amount,
+                    weights=total_best_ship[0].copy(), v_x=how_fast*np.cos(planet_theta_init[0]), v_y=how_fast*np.sin(planet_theta_init[0]))
 
 test_ship(perfect_ship)

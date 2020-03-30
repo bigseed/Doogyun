@@ -1,6 +1,15 @@
 import numpy as np
 
-a = (1, 2, 3)
-k = 2
-b = tuple(map(lambda x: 2*x, a))
-print(b)
+
+def arithmetic_progression(x, common_difference):
+    progression = [1]
+    while True:
+        progression.append(progression[-1] + common_difference)
+        if progression[-1] > x:
+            break
+
+    return progression[:-1]
+
+
+a = arithmetic_progression(100, 3)
+print(a)
