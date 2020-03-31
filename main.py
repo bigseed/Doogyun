@@ -9,7 +9,7 @@ def distance(x1, y1, x2, y2):
 
 def animate(interval):
     animation = cam.animate(interval=interval)
-    animation.save('test1.mp4')
+    animation.save('./animations/{}.mp4'.format(seed))
 
 
 def draw_orbit():
@@ -39,9 +39,8 @@ def fibo(x):
     return fibo_nums[1:-1]
 
 
-def diff_of_progression(x):
+def diff_of_progression(x, c_diff=1):
     progression = [1]
-    c_diff = 1
 
     while True:
         if progression[-1] > x:
@@ -59,7 +58,6 @@ def move_planet():
 
 
 def calc_gravity(x, y):
-    G = 0.5
     g_x, g_y = 0, 0
 
     for idx in range(3):
@@ -197,22 +195,23 @@ def test_ship(ship):
 
 
 # make Canvas
-np.random.seed(544821)
-scale = 2
+scale = 3
 fig, axes = plt.subplots()
 ax = plt.axes(xlim=(-20*scale, 20*scale), ylim=(-20*scale, 20*scale))
 ax.set_aspect('equal')
 cam = Camera(fig)
 
 # planet parameters
-planet_radius = (4, 10, 18)
+seed = 93647227
+np.random.seed(seed)
+planet_radius = (4, 11, 18)
 planet_radius = tuple(map(lambda x: scale*x, planet_radius))
 planet_theta_init = np.random.uniform(-np.pi, np.pi, (3,))
 planet_theta = planet_theta_init.copy()
 angular_velocity = np.sort(np.random.uniform(0, np.pi / 50, (3,)))[::-1]
 
 # Initialize parameters
-time = 100
+time = 150
 n = 500
 epsilon = 0.0
 deceleration = 0.5
@@ -220,13 +219,13 @@ gamma = 0.05
 add_range = 5
 speed_range = 50
 fuel_to_acceleration = 1 / 50
-fuel_amount = 15000
+fuel_amount = 1e8
+G = 1.2
 EPOCHS = 1
 total_best_ship = (0, 0)
 total_best_ship_exist = False
 how_far = 1
-how_fast = 1
-
+how_fast = 1.5
 
 if True:
     for epoch in range(EPOCHS):
@@ -237,22 +236,23 @@ if True:
             best_ship = (0, -1)
             ships = first_make()
 
-        for duration in range(1, time, 3):
+        for duration in diff_of_progression(time):
 
             best_ship_exist = False
             weight_length = ships[0]['weights'].shape[0]
-            for moment in range(duration):  # 학습 루프
+            for moment in range(duration):
                 if moment < weight_length:
                     move_ships(moment, True)
                 else:
                     move_ships(moment, False)
 
             max_val_ship = (0, -1)
-            for ship in ships:  # 우주선 검증
+            for ship in ships:
                 if ship['isgood']:
                     if ship['value'] > best_ship[1]:
                         best_ship = (ship['weights'].copy(), ship['value'])
                         best_ship_exist = True
+                        total_best_ship_exist = True
                 if ship['value'] > max_val_ship[1]:
                     max_val_ship = (ship['weights'].copy(), ship['value'])
 
@@ -267,12 +267,12 @@ if True:
 
             planet_theta = planet_theta_init.copy()
 
-planet_theta = planet_theta_init.copy()
-planet_x = (planet_radius[0]+how_far)*np.cos(planet_theta_init[0])
-planet_y = (planet_radius[0]+how_far)*np.sin(planet_theta_init[0])
+    planet_theta = planet_theta_init.copy()
+    planet_x = (planet_radius[0]+how_far)*np.cos(planet_theta_init[0])
+    planet_y = (planet_radius[0]+how_far)*np.sin(planet_theta_init[0])
 
-print(total_best_ship)
-perfect_ship = dict(x=planet_x, y=planet_y, fuel=fuel_amount,
-                    weights=total_best_ship[0].copy(), v_x=how_fast*np.cos(planet_theta_init[0]), v_y=how_fast*np.sin(planet_theta_init[0]))
+    if total_best_ship_exist:
+        perfect_ship = dict(x=planet_x, y=planet_y, fuel=fuel_amount,
+                            weights=total_best_ship[0].copy(), v_x=how_fast*np.cos(planet_theta_init[0]), v_y=how_fast*np.sin(planet_theta_init[0]))
 
-test_ship(perfect_ship)
+        test_ship(perfect_ship)
